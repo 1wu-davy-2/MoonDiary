@@ -1,0 +1,36 @@
+# 构建上下文里不需要的东西。注意别把 migrations/ 和 scripts/*.mjs 排除掉 ——
+# 运行阶段要用它们跑迁移。
+
+node_modules
+.output
+.tanstack
+.nitro
+
+# 本地环境与密钥
+.env
+.env.*
+!.env.example
+
+# 开发/测试产物
+screenshots
+artifacts
+*.log
+coverage
+
+# 图片原图：只在本地用 scripts/optimize-images.mjs 生成 public/ 里的成品，
+# 不进镜像（体积大且不会被请求）
+assets/source
+
+# 版本控制与编辑器
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+
+# 文档与容器自身的定义（运行阶段用不到）
+README.md
+Dockerfile
+docker-compose.yml
+.dockerignore
+AGENTS.md

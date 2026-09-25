@@ -1,0 +1,69 @@
+# 月笺 —— 应用 + MariaDB。
+#
+# 反向代理不在这里：用你自己服务器上的 nginx / 宝塔反代到 ${APP_BIND}:${APP_PORT}。
+# 反代时务必带上 X-Forwarded-For / X-Forwarded-Proto / X-Forwarded-Host，
+# 否则访问 IP 记不准、生成的分享链接也会变成容器内网地址。README 里有完整配置。
+#
+# 用法：
+#   cp .env.example .env   # 改掉 ADMIN_PASSWORD 和 DB 密码
+#   docker compose up -d --build
+
+name: yuejian
+
+services:
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # 会话时区固定 UTC。应用按 UTC 解析时间戳再渲染成北京时间，
+      # 这里不固定的话所有时间都会差一个时区偏移。
+      - --default-time-zone=+00:00
+    environment:
+      TZ: UTC
+      MARIADB_DATABASE: ${DB_NAME:-yuejian}
+      MARIADB_USER: ${DB_USER:-yuejian}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?请在 .env 里设置 DB_ROOT_PASSWORD}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+    # 刻意不映射端口：数据库只对 compose 网络内的 app 可见。
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      # 用分项变量而不是 DATABASE_URL：密码里出现 @ : # 时，
+      # 塞进 URI 必须做百分号转义，那是个很容易踩的坑。
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-yuejian}
+      DB_USER: ${DB_USER:-yuejian}
+      DB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin@123}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    ports:
+      # 默认只绑回环：宿主机上的 nginx 是唯一入口。
+      # 如果你的 nginx 也在 Docker 里（另一个容器），把 APP_BIND 改成 0.0.0.0。
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000"
+
+volumes:
+  mariadb-data:

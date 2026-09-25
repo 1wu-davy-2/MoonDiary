@@ -1,0 +1,253 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0c0d12;
+  --color-surface: #14141a;
+  --color-fg: #f3ead8;
+  --color-muted: #9a9184;
+  --color-accent: #e8d5b0;
+  --color-accent-fg: #0c0d12;
+  --color-border: #2a2722;
+
+  --font-sans: "Noto Serif SC", "Songti SC", "Noto Serif CJK SC", serif;
+  --font-display: "Noto Serif SC", "Songti SC", "Noto Serif CJK SC", serif;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-3xl: 40px;
+
+  --tracking-label: 0.22em;
+  --tracking-brand: 0.32em;
+  --tracking-hero: 0.38em;
+
+  --shadow-border: 0 0 0 1px rgba(243, 234, 216, 0.08);
+  --shadow-border-hover: 0 0 0 1px rgba(243, 234, 216, 0.16);
+}
+
+:root {
+  --motion-stagger: 40ms;
+  --motion-micro: 80ms;
+  --motion-quick: 150ms;
+  --motion-fast: 250ms;
+  --motion-slow: 400ms;
+  --motion-emphasis: 500ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body {
+    min-height: 100dvh;
+    background-color: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+/*
+ * 放在 @layer components 里是必须的，不是风格偏好。
+ *
+ * Tailwind v4 的分层顺序是 theme → base → components → utilities，
+ * 而**未分层的样式优先级高于任何分层样式**。这些类如果写在层外，
+ * 就会盖掉调用处传进来的工具类 —— 之前 `.field` 的 `padding: 10px 0`
+ * 吃掉了搜索框的 `pl-9`（放大镜图标压在占位文字上），
+ * `font: inherit` 也吃掉了「写给」输入框的 `text-lg`。
+ */
+@layer components {
+  .field {
+    width: 100%;
+    min-height: 44px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid color-mix(in oklab, var(--color-fg) 16%, transparent);
+    color: var(--color-fg);
+    padding: 10px 0;
+    font: inherit;
+    outline: none;
+    border-radius: 0;
+    transition-property: border-color;
+    transition-duration: var(--motion-quick);
+    transition-timing-function: var(--ease-out);
+  }
+
+  .field::placeholder {
+    color: color-mix(in oklab, var(--color-muted) 80%, transparent);
+  }
+
+  .field:focus {
+    border-bottom-color: var(--color-accent);
+  }
+
+  .textarea {
+    min-height: 7.5rem;
+    resize: none;
+    line-height: 1.7;
+    border-bottom-width: 1px;
+  }
+}
+
+/*
+ * 桂花装饰图。
+ *
+ * 这张照片的底色是深蓝灰，比卡片底色 (#14141a) 亮，直接贴上去会在卡片上
+ * 露出一个明显的矩形硬边。用径向遮罩从右下角向左上渐隐，只留花枝，
+ * 边界就化开了。图片本身超出卡片右侧，由 overflow-hidden 裁掉，所以
+ * 只需要处理左边和上边。
+ */
+.osmanthus {
+  -webkit-mask-image: radial-gradient(120% 105% at 100% 100%, #000 30%, transparent 72%);
+  mask-image: radial-gradient(120% 105% at 100% 100%, #000 30%, transparent 72%);
+}
+
+.grain {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+}
+
+.safe-pad {
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.moon-wash {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 70vh;
+  background: radial-gradient(
+    ellipse at 50% 18%,
+    color-mix(in oklab, var(--color-accent) 10%, transparent),
+    transparent 58%
+  );
+}
+
+.sky-horizon {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 12rem;
+  background: linear-gradient(to top, var(--color-bg), transparent);
+}
+
+.rise-in {
+  animation: rise-in var(--motion-slow) var(--ease-smooth-out) both;
+}
+
+.rise-in-2 {
+  animation: rise-in var(--motion-slow) var(--ease-smooth-out) both;
+  animation-delay: 80ms;
+}
+
+.rise-in-3 {
+  animation: rise-in var(--motion-emphasis) var(--ease-smooth-out) both;
+  animation-delay: 140ms;
+}
+
+.rise-in-4 {
+  animation: rise-in var(--motion-emphasis) var(--ease-smooth-out) both;
+  animation-delay: 220ms;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.star {
+  animation: twinkle 3.6s ease-in-out infinite;
+}
+
+@keyframes lantern-rise {
+  0% {
+    transform: translateY(0) scale(0.96);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-115vh) scale(1);
+    opacity: 0;
+  }
+}
+
+.lantern-rise {
+  animation: lantern-rise 7s var(--ease-smooth-out) forwards;
+}
+
+@keyframes moon-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.22;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.32;
+  }
+}
+
+.moon-glow {
+  animation: moon-breathe 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in,
+  .rise-in-2,
+  .rise-in-3,
+  .rise-in-4,
+  .star,
+  .lantern-rise,
+  .moon-glow {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

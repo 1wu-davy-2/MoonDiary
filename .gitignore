@@ -1,0 +1,18 @@
+node_modules/
+.output/
+.tanstack/
+.nitro/
+dist/
+
+# 环境变量：.env 里是数据库密码和后台密码，绝不能提交
+.env
+.env.*
+!.env.example
+
+# 构建期生成的类型化路由树，由 vite 插件重新生成
+src/routeTree.gen.ts
+
+screenshots/
+artifacts/
+*.log
+.DS_Store
