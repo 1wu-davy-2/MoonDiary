@@ -34,7 +34,16 @@ services:
       timeout: 5s
       retries: 24
       start_period: 30s
-    # 刻意不映射端口：数据库只对 compose 网络内的 app 可见。
+    ports:
+      # 只为维护用：让宿主机上的命令行 / Navicat 能连进这个容器的库。
+      #
+      # 容器内监听 3306，映射到宿主机 3307 是为了避开宿主机上已有的
+      # MariaDB（那个占着 3306）。两者互不影响 —— 容器有自己的网络
+      # 命名空间，不映射的话从宿主机根本连不进去。
+      #
+      # 只绑 127.0.0.1：公网连不上，只有本机能连。
+      # 不需要维护入口就整段删掉，或把 DB_HOST_PORT 留空。
+      - "${DB_BIND:-127.0.0.1}:${DB_HOST_PORT:-3307}:3306"
 
   app:
     build: .
@@ -48,11 +57,15 @@ services:
       HOST: 0.0.0.0
       # 用分项变量而不是 DATABASE_URL：密码里出现 @ : # 时，
       # 塞进 URI 必须做百分号转义，那是个很容易踩的坑。
+      #
+      # DB_HOST/DB_PORT 在这里写死、不从 .env 读：它们必须跟上面那个服务名
+      # 一致，做成可配只会让人改坏。.env 里同名变量的注释也说明了这点。
       DB_HOST: mariadb
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-yuejian}
       DB_USER: ${DB_USER:-yuejian}
       DB_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
       TRUST_PROXY: ${TRUST_PROXY:-true}
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
