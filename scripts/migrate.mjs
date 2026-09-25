@@ -61,6 +61,39 @@ function toConnectionConfig(options) {
       };
 }
 
+/**
+ * 退出码约定 —— docker/entrypoint.sh 靠它决定要不要重试（那边是硬编码的
+ * 同名常量，改这里记得同步）：
+ *   0  成功
+ *   1  暂时性失败（数据库还没起来），值得重试
+ *   2  永久性失败（密码错、库不存在、SQL 写错），重试多少次都一样
+ */
+const EXIT_TRANSIENT = 1;
+const EXIT_PERMANENT = 2;
+
+/**
+ * 连不上的错误 —— 数据库容器还在启动中，等一会儿就好。
+ *
+ * 判断依据是"**有没有连上**"：只要 TCP 层没通，就是暂时性的；
+ * 一旦连上了服务器还报错，那就是账号、库名或 SQL 的问题，
+ * 永远不会自己好，必须立刻停下并说清楚。
+ */
+const TRANSIENT_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EHOSTUNREACH",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "EPIPE",
+  "PROTOCOL_CONNECTION_LOST",
+  "ER_CON_COUNT_ERROR",
+]);
+
+function isTransient(error) {
+  return TRANSIENT_CODES.has(error?.code);
+}
+
 async function main() {
   let entries;
   try {
@@ -75,6 +108,13 @@ async function main() {
   }
 
   const options = connectionOptions();
+
+  // 把目标打出来（不含密码）—— 连不上时第一眼就能看出连的是哪儿。
+  const target =
+    "uri" in options
+      ? "[来自 DATABASE_URL]"
+      : `${options.host}:${options.port}/${options.database} 用户=${options.user}`;
+  console.log(`[migrate] 连接 ${target}`);
   const connection = await mysql.createConnection({
     ...toConnectionConfig(options),
     // Named collation, not a bare "utf8mb4" (which resolves to
@@ -123,5 +163,31 @@ main().catch((err) => {
   for (const key of ["code", "errno", "sqlState", "sqlMessage"]) {
     if (err?.[key] != null) console.error(`[migrate]   ${key}: ${err[key]}`);
   }
-  process.exit(1);
+
+  // 连都没连上 —— 数据库多半还在启动，交给 entrypoint 重试。
+  if (isTransient(err)) process.exit(EXIT_TRANSIENT);
+
+  // 连上了还报错，说明是账号/库名/SQL 的问题，不会自己好。
+  // 把"接下来该干什么"直接打出来，省得对着 Access denied 猜。
+  if (err?.code === "ER_ACCESS_DENIED_ERROR" || err?.code === "ER_DBACCESS_DENIED_ERROR") {
+    console.error("");
+    console.error("[migrate] 账号或密码不对。");
+    console.error("[migrate] MariaDB 只在数据目录为空时初始化，之后再改 .env");
+    console.error("[migrate] 也不会动已有用户的密码 —— 库里存的还是首次启动那套。");
+    console.error("[migrate]");
+    console.error("[migrate] 库里没有有效数据 → 清库重来（会清空所有数据）：");
+    console.error("[migrate]     docker compose down -v && docker compose up -d");
+    console.error("[migrate]");
+    console.error("[migrate] 库里已有数据 → 进容器把密码改成 .env 里那个：");
+    console.error("[migrate]     docker compose exec mariadb mariadb -uroot -p'旧的root密码'");
+    console.error("[migrate]     > ALTER USER 'yuejian'@'%' IDENTIFIED BY '新密码';");
+    console.error("[migrate]     > FLUSH PRIVILEGES;");
+  }
+  if (err?.code === "ER_BAD_DB_ERROR") {
+    console.error("");
+    console.error("[migrate] 数据库不存在 —— 检查 .env 的 DB_NAME 和");
+    console.error("[migrate] compose 里 mariadb 的 MARIADB_DATABASE 是否一致。");
+  }
+
+  process.exit(EXIT_PERMANENT);
 });
